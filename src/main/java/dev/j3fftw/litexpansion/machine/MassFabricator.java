@@ -14,6 +14,11 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.blocks.BlockPosition;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
@@ -22,163 +27,169 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+public class MassFabricator extends SlimefunItem
+    implements InventoryBlock, EnergyNetComponent, PoweredMachine {
 
-public class MassFabricator extends SlimefunItem implements InventoryBlock, EnergyNetComponent, PoweredMachine {
+  public static final RecipeType RECIPE_TYPE =
+      new RecipeType(
+          new NamespacedKey(LiteXpansion.getInstance(), "mass_fabricator"),
+          Items.MASS_FABRICATOR_MACHINE);
 
-    public static final RecipeType RECIPE_TYPE = new RecipeType(
-        new NamespacedKey(LiteXpansion.getInstance(), "mass_fabricator"), Items.MASS_FABRICATOR_MACHINE
-    );
+  public static final int ENERGY_CONSUMPTION = 16_666;
+  public static final int CAPACITY = ENERGY_CONSUMPTION * 3;
+  private static final int[] INPUT_SLOTS = new int[] {10, 11};
+  private static final int OUTPUT_SLOT = 15;
+  private static final int PROGRESS_SLOT = 13;
+  private static final int PROGRESS_AMOUNT = 200; // Divide by 2 for seconds it takes
 
-    public static final int ENERGY_CONSUMPTION = 16_666;
-    public static final int CAPACITY = ENERGY_CONSUMPTION * 3;
-    private static final int[] INPUT_SLOTS = new int[] {10, 11};
-    private static final int OUTPUT_SLOT = 15;
-    private static final int PROGRESS_SLOT = 13;
-    private static final int PROGRESS_AMOUNT = 200; // Divide by 2 for seconds it takes
+  private static final Map<BlockPosition, Integer> progress = new HashMap<>();
 
-    private static final Map<BlockPosition, Integer> progress = new HashMap<>();
+  private static final CustomItemStack progressItem =
+      new CustomItemStack(Items.UU_MATTER.getType(), "&7Progress");
 
-    private static final CustomItemStack progressItem = new CustomItemStack(Items.UU_MATTER.getType(), "&7Progress");
+  private static final ItemStack plate = SlimefunItems.REINFORCED_PLATE;
+  private static final ItemStack circuitBoard = SlimefunItems.ADVANCED_CIRCUIT_BOARD;
 
-    private static final ItemStack plate = SlimefunItems.REINFORCED_PLATE;
-    private static final ItemStack circuitBoard = SlimefunItems.ADVANCED_CIRCUIT_BOARD;
-
-    public MassFabricator() {
-        super(Items.LITEXPANSION, Items.MASS_FABRICATOR_MACHINE, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
-            plate, circuitBoard, plate,
-            circuitBoard, Items.MACHINE_BLOCK, circuitBoard,
-            plate, circuitBoard, plate
+  public MassFabricator() {
+    super(
+        Items.LITEXPANSION,
+        Items.MASS_FABRICATOR_MACHINE,
+        RecipeType.ENHANCED_CRAFTING_TABLE,
+        new ItemStack[] {
+          plate, circuitBoard, plate,
+          circuitBoard, Items.MACHINE_BLOCK, circuitBoard,
+          plate, circuitBoard, plate
         });
-        setupInv();
-        this.addItemHandler(
-            new BlockBreakHandler(false, false) {
-                @Override
-                public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
-                    BlockMenu blockMenu = BlockStorage.getInventory(event.getBlock());
-                    if (blockMenu != null) {
-                        blockMenu.dropItems(blockMenu.getLocation(), INPUT_SLOTS);
-                        blockMenu.dropItems(blockMenu.getLocation(), OUTPUT_SLOT);
-                    }
-                }
+    setupInv();
+    this.addItemHandler(
+        new BlockBreakHandler(false, false) {
+          @Override
+          public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
+            BlockMenu blockMenu = BlockStorage.getInventory(event.getBlock());
+            if (blockMenu != null) {
+              blockMenu.dropItems(blockMenu.getLocation(), INPUT_SLOTS);
+              blockMenu.dropItems(blockMenu.getLocation(), OUTPUT_SLOT);
             }
-        );
+          }
+        });
+  }
+
+  private void setupInv() {
+    createPreset(
+        this,
+        "&5Mass Fabricator",
+        blockMenuPreset -> {
+          for (int i = 0; i < 27; i++) {
+            if (i == INPUT_SLOTS[0] || i == INPUT_SLOTS[1]) continue;
+            blockMenuPreset.addItem(
+                i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
+          }
+          Utils.putOutputSlot(blockMenuPreset, OUTPUT_SLOT);
+          blockMenuPreset.addItem(PROGRESS_SLOT, progressItem);
+          blockMenuPreset.addMenuClickHandler(PROGRESS_SLOT, ChestMenuUtils.getEmptyClickHandler());
+        });
+  }
+
+  @Override
+  public void preRegister() {
+    this.addItemHandler(
+        new BlockTicker() {
+          public void tick(@NotNull Block b, SlimefunItem sf, Config data) {
+            MassFabricator.this.tick(b);
+          }
+
+          public boolean isSynchronized() {
+            return false;
+          }
+        });
+  }
+
+  private void tick(@Nonnull Block b) {
+    @Nullable final BlockMenu inv = BlockStorage.getInventory(b);
+    if (inv == null) {
+      return;
     }
 
-    private void setupInv() {
-        createPreset(this, "&5Mass Fabricator", blockMenuPreset -> {
-            for (int i = 0; i < 27; i++) {
-                if (i == INPUT_SLOTS[0] || i == INPUT_SLOTS[1]) continue;
-                blockMenuPreset.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
-            }
-            Utils.putOutputSlot(blockMenuPreset, OUTPUT_SLOT);
-            blockMenuPreset.addItem(PROGRESS_SLOT, progressItem);
-            blockMenuPreset.addMenuClickHandler(PROGRESS_SLOT, ChestMenuUtils.getEmptyClickHandler());
-        });
-    }
-
-    @Override
-    public void preRegister() {
-        this.addItemHandler(new BlockTicker() {
-            public void tick(Block b, SlimefunItem sf, Config data) {
-                MassFabricator.this.tick(b);
-            }
-
-            public boolean isSynchronized() {
-                return false;
-            }
-        });
-    }
-
-    private void tick(@Nonnull Block b) {
-        @Nullable final BlockMenu inv = BlockStorage.getInventory(b);
-        if (inv == null) {
-            return;
-        }
-
-        // yes this is ugly shush
-        @Nullable ItemStack input = inv.getItemInSlot(INPUT_SLOTS[0]);
-        @Nullable ItemStack input2 = inv.getItemInSlot(INPUT_SLOTS[1]);
-        @Nullable final ItemStack output = inv.getItemInSlot(OUTPUT_SLOT);
-        if (output != null && (output.getType() != Items.UU_MATTER.getType()
+    // yes this is ugly shush
+    @Nullable ItemStack input = inv.getItemInSlot(INPUT_SLOTS[0]);
+    @Nullable ItemStack input2 = inv.getItemInSlot(INPUT_SLOTS[1]);
+    @Nullable final ItemStack output = inv.getItemInSlot(OUTPUT_SLOT);
+    if (output != null
+        && (output.getType() != Items.UU_MATTER.getType()
             || output.getAmount() == output.getMaxStackSize()
             || !Items.UU_MATTER.getItem().isItem(output))) {
-            return;
-        }
-
-        if (!Items.SCRAP.getItem().isItem(input)) {
-            input = null;
-        }
-        if (!Items.SCRAP.getItem().isItem(input2)) {
-            input2 = null;
-        }
-        if (input == null && input2 == null) {
-            return;
-        }
-
-        final BlockPosition pos = new BlockPosition(b.getWorld(), b.getX(), b.getY(), b.getZ());
-        int currentProgress = progress.getOrDefault(pos, 0);
-
-        if (!takePower(b)) {
-            return;
-        }
-
-        // Process first tick - remove an input and put it in map.
-        if (currentProgress != PROGRESS_AMOUNT) {
-            if (input != null)
-                inv.consumeItem(INPUT_SLOTS[0]);
-            else
-                inv.consumeItem(INPUT_SLOTS[1]);
-            progress.put(pos, ++currentProgress);
-            ChestMenuUtils.updateProgressbar(inv, PROGRESS_SLOT, PROGRESS_AMOUNT - currentProgress,
-                PROGRESS_AMOUNT, progressItem);
-        } else {
-            if (output != null && output.getAmount() > 0) {
-                output.setAmount(output.getAmount() + 1);
-            } else {
-                inv.replaceExistingItem(OUTPUT_SLOT, Items.UU_MATTER.clone());
-            }
-            progress.remove(pos);
-            ChestMenuUtils.updateProgressbar(inv, PROGRESS_SLOT, PROGRESS_AMOUNT, PROGRESS_AMOUNT, progressItem);
-        }
+      return;
     }
 
-    private boolean takePower(@Nonnull Block b) {
-        if (getCharge(b.getLocation()) < getFinalEnergyConsumption()) {
-            return false;
-        }
-        removeCharge(b.getLocation(), getFinalEnergyConsumption());
-        return true;
+    if (!Items.SCRAP.getItem().isItem(input)) {
+      input = null;
+    }
+    if (!Items.SCRAP.getItem().isItem(input2)) {
+      input2 = null;
+    }
+    if (input == null && input2 == null) {
+      return;
     }
 
-    @Nonnull
-    @Override
-    public EnergyNetComponentType getEnergyComponentType() {
-        return EnergyNetComponentType.CONSUMER;
+    final BlockPosition pos = new BlockPosition(b.getWorld(), b.getX(), b.getY(), b.getZ());
+    int currentProgress = progress.getOrDefault(pos, 0);
+
+    if (!takePower(b)) {
+      return;
     }
 
-    @Override
-    public int getCapacity() {
-        return CAPACITY;
+    // Process first tick - remove an input and put it in map.
+    if (currentProgress != PROGRESS_AMOUNT) {
+      if (input != null) inv.consumeItem(INPUT_SLOTS[0]);
+      else inv.consumeItem(INPUT_SLOTS[1]);
+      progress.put(pos, ++currentProgress);
+      ChestMenuUtils.updateProgressbar(
+          inv, PROGRESS_SLOT, PROGRESS_AMOUNT - currentProgress, PROGRESS_AMOUNT, progressItem);
+    } else {
+      if (output != null && output.getAmount() > 0) {
+        output.setAmount(output.getAmount() + 1);
+      } else {
+        inv.replaceExistingItem(OUTPUT_SLOT, Items.UU_MATTER.clone());
+      }
+      progress.remove(pos);
+      ChestMenuUtils.updateProgressbar(
+          inv, PROGRESS_SLOT, PROGRESS_AMOUNT, PROGRESS_AMOUNT, progressItem);
     }
+  }
 
-    @Override
-    public int[] getInputSlots() {
-        return INPUT_SLOTS;
+  private boolean takePower(@Nonnull Block b) {
+    if (getCharge(b.getLocation()) < getFinalEnergyConsumption()) {
+      return false;
     }
+    removeCharge(b.getLocation(), getFinalEnergyConsumption());
+    return true;
+  }
 
-    @Override
-    public int[] getOutputSlots() {
-        return new int[] {OUTPUT_SLOT};
-    }
+  @Nonnull
+  @Override
+  public EnergyNetComponentType getEnergyComponentType() {
+    return EnergyNetComponentType.CONSUMER;
+  }
 
-    @Override
-    public int getDefaultEnergyConsumption() {
-        return ENERGY_CONSUMPTION;
-    }
+  @Override
+  public int getCapacity() {
+    return CAPACITY;
+  }
+
+  @Override
+  public int[] getInputSlots() {
+    return INPUT_SLOTS;
+  }
+
+  @Override
+  public int[] getOutputSlots() {
+    return new int[] {OUTPUT_SLOT};
+  }
+
+  @Override
+  public int getDefaultEnergyConsumption() {
+    return ENERGY_CONSUMPTION;
+  }
 }

@@ -7,76 +7,71 @@ import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import java.util.ArrayList;
+import java.util.List;
+import javax.annotation.Nonnull;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
-
-
-//todo make it generic then push to extrautils
+// todo make it generic then push to extrautils
 public class BlockMenuPresetTest extends BlockMenuPreset {
 
-    private final UUCrafter autoCrafter;
+  private final @NotNull UUCrafter autoCrafter;
 
-    public BlockMenuPresetTest(@Nonnull String id, @Nonnull String title, @Nonnull UUCrafter autoCrafter) {
-        super(id, title);
-        this.autoCrafter = autoCrafter;
+  public BlockMenuPresetTest(
+      @Nonnull String id, @Nonnull String title, @Nonnull UUCrafter autoCrafter) {
+    super(id, title);
+    this.autoCrafter = autoCrafter;
+  }
+
+  @Override
+  public void init() {
+    List<Integer> crafting = new ArrayList<>();
+    for (int CRAFTING_SLOT : UUCrafter.CRAFTING_SLOTS) {
+      Integer integer = CRAFTING_SLOT;
+      crafting.add(integer);
     }
 
+    for (int i = 0; i < 54; i++) {
+      if (i == UUCrafter.INPUT_SLOT
+          || i == UUCrafter.OUTPUT_SLOT
+          || i == UUCrafter.START_STOP
+          || crafting.contains(i)) continue;
 
-    @Override
-    public void init() {
-        List<Integer> crafting = new ArrayList<>();
-        for (int CRAFTING_SLOT : UUCrafter.CRAFTING_SLOTS) {
-            Integer integer = CRAFTING_SLOT;
-            crafting.add(integer);
-        }
-
-        for (int i = 0; i < 54; i++) {
-            if (i == UUCrafter.INPUT_SLOT
-                || i == UUCrafter.OUTPUT_SLOT
-                || i == UUCrafter.START_STOP
-                || crafting.contains(i)
-            ) continue;
-
-            addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
-        }
-
-        Utils.putOutputSlot(this, UUCrafter.OUTPUT_SLOT);
-
-        addItem(UUCrafter.START_STOP,
-            new CustomItemStack(
-                Material.RED_STAINED_GLASS_PANE,
-                "&7Click to start"
-            )
-        );
+      addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
     }
 
-    @Override
-    public int[] getSlotsAccessedByItemTransport(ItemTransportFlow flow) {
-        if (flow == ItemTransportFlow.INSERT) {
-            return autoCrafter.getInputSlots();
-        } else {
-            return autoCrafter.getOutputSlots();
-        }
-    }
+    Utils.putOutputSlot(this, UUCrafter.OUTPUT_SLOT);
 
-    @Override
-    public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
-        return player.hasPermission("slimefun.inventory.bypass")
-            || (Slimefun.getProtectionManager().hasPermission(player, block.getLocation(),
-            Interaction.INTERACT_BLOCK) && SlimefunUtils.canPlayerUseItem(player, autoCrafter.getItem(), false)
-        );
-    }
+    addItem(
+        UUCrafter.START_STOP,
+        new CustomItemStack(Material.RED_STAINED_GLASS_PANE, "&7Click to start"));
+  }
 
-    @Override
-    public void newInstance(@Nonnull BlockMenu menu, @Nonnull Block block) {
-        autoCrafter.onNewInstance(menu, block);
+  @Override
+  public int[] getSlotsAccessedByItemTransport(ItemTransportFlow flow) {
+    if (flow == ItemTransportFlow.INSERT) {
+      return autoCrafter.getInputSlots();
+    } else {
+      return autoCrafter.getOutputSlots();
     }
+  }
+
+  @Override
+  public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
+    return player.hasPermission("slimefun.inventory.bypass")
+        || (Slimefun.getProtectionManager()
+                .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK)
+            && SlimefunUtils.canPlayerUseItem(player, autoCrafter.getItem(), false));
+  }
+
+  @Override
+  public void newInstance(@Nonnull BlockMenu menu, @Nonnull Block block) {
+    autoCrafter.onNewInstance(menu, block);
+  }
 }

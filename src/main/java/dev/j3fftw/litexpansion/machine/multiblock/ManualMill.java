@@ -9,34 +9,46 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 public class ManualMill extends CraftingMultiBlock {
 
-    public static final RecipeType RECIPE_TYPE = new RecipeType(
-        new NamespacedKey(LiteXpansion.getInstance(), "manual_mill"),
+  public static final RecipeType RECIPE_TYPE =
+      new RecipeType(
+          new NamespacedKey(LiteXpansion.getInstance(), "manual_mill"),
+          Items.MANUAL_MILL,
+          "",
+          "&7Used to Forge Metals");
+
+  private static final ItemStack anvil = new ItemStack(Material.ANVIL);
+  private static final ItemStack ironBlock = new ItemStack(Material.IRON_BLOCK);
+
+  public ManualMill() {
+    super(
+        Items.LITEXPANSION,
         Items.MANUAL_MILL,
-        "",
-        "&7Used to Forge Metals"
-    );
+        new ItemStack[] {
+          anvil,
+          new ItemStack(Material.STONE_BRICK_WALL),
+          anvil,
+          ironBlock,
+          new ItemStack(Material.DISPENSER),
+          ironBlock,
+          null,
+          ironBlock,
+          null
+        },
+        new ItemStack[0],
+        BlockFace.DOWN);
+  }
 
-    private static final ItemStack anvil = new ItemStack(Material.ANVIL);
-    private static final ItemStack ironBlock = new ItemStack(Material.IRON_BLOCK);
+  @Override
+  public @NotNull Block getSpecialBlock(@NotNull Block dispenser) {
+    return dispenser.getRelative(BlockFace.DOWN);
+  }
 
-    public ManualMill() {
-        super(Items.LITEXPANSION, Items.MANUAL_MILL, new ItemStack[] {
-            anvil, new ItemStack(Material.STONE_BRICK_WALL), anvil,
-            ironBlock, new ItemStack(Material.DISPENSER), ironBlock,
-            null, ironBlock, null
-        }, new ItemStack[0], BlockFace.DOWN);
-    }
-
-    @Override
-    public Block getSpecialBlock(Block dispenser) {
-        return dispenser.getRelative(BlockFace.DOWN);
-    }
-
-    @Override
-    public boolean removeSpecialBlock() {
-        return true;
-    }
+  @Override
+  public boolean removeSpecialBlock() {
+    return true;
+  }
 }
